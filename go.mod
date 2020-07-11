@@ -1,4 +1,4 @@
-module rkfg.me/golang/jsonecho
+module github.com/rkfg/jsonecho
 
 go 1.14
 
