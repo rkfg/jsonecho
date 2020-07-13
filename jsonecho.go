@@ -15,14 +15,6 @@ type Result map[string]interface{}
 
 var json = jsontime.ConfigWithCustomTimeFormat
 
-// FileUpload is a string alias that supports proper JSON interop for React Admin usage
-type FileUpload string
-
-type fileUploadJSON struct {
-	Src  string `json:"src"`
-	Orig string `json:"orig"`
-}
-
 // JEBase is a base class for compat
 type JEBase struct {
 	ID uint `json:"id"`
@@ -117,23 +109,4 @@ func ItemResp(c echo.Context, itemPtr interface{}, err error) error {
 		return JSONError(c, http.StatusBadRequest, err)
 	}
 	return JSONOk(c, itemPtr)
-}
-
-// MarshalJSON produces JSON for file upload field
-func (f FileUpload) MarshalJSON() ([]byte, error) {
-	var src string
-	if f != "" {
-		src = "uploads/" + string(f)
-	}
-	return json.Marshal(fileUploadJSON{Src: src, Orig: string(f)})
-}
-
-// UnmarshalJSON fills the Fileupload field with orig JSON field
-func (f *FileUpload) UnmarshalJSON(data []byte) error {
-	var tmp fileUploadJSON
-	if err := json.Unmarshal(data, &tmp); err != nil {
-		return err
-	}
-	*f = FileUpload(tmp.Orig)
-	return nil
 }
