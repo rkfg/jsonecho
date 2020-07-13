@@ -1,3 +1,4 @@
+// Package jsonecho contains utility functions to use with GORM, Echo and Casbin
 package jsonecho
 
 import (
