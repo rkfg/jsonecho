@@ -54,6 +54,8 @@ func FromSQLDate(d string) time.Time {
 
 func init() {
 	jsontime.AddTimeFormatAlias("sql_date", "2006-01-02")
+	jsontime.AddTimeFormatAlias("sql_time", "15:04:05")
+	jsontime.AddTimeFormatAlias("sql_datetime", "2006-01-02 15:04:05")
 }
 
 // BindJSON binds the request body to the provided structure using jsontime
