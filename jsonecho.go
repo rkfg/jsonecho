@@ -18,7 +18,7 @@ var json = jsontime.ConfigWithCustomTimeFormat
 
 // JEBase is a base class for compat
 type JEBase struct {
-	ID uint `json:"id"`
+	ID uint64 `json:"id"`
 }
 
 // JEBased is the JEBase interface, you only need to provide the New implementation
