@@ -34,8 +34,11 @@ func crudListUsers(c echo.Context, model *gorm.DB) ([]User, error) {
 		return nil, err
 	}
 	for k, v := range relatedIds {
-		if strings.HasSuffix(k, "_id") && model.NewScope(&result).HasColumn(k) {
-			chain = chain.Where(k+" = ?", v)
+		if k == "name" {
+			chain = chain.Where("name LIKE ?", v.(string)+"%")
+		}
+		if k == "role" {
+			chain = chain.Where("v1 = ?", "role:"+v.(string))
 		}
 	}
 	var cnt int
