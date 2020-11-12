@@ -14,7 +14,7 @@ import (
 // NewJWTCasbinMiddleware provides a combined middleware of JWTWithConfig with a provided secret and a default casbin enforcer
 func (a *Auth) NewJWTCasbinMiddleware(useQueryToken bool, tokenExpiredMessage string) echo.MiddlewareFunc {
 	jwtHeaderConfig := middleware.DefaultJWTConfig
-	jwtHeaderConfig.SigningKey = a.secret
+	jwtHeaderConfig.SigningKey = a.Secret
 	if useQueryToken {
 		jwtHeaderConfig.Skipper = func(c echo.Context) bool {
 			return c.QueryParam("token") != ""
@@ -23,7 +23,7 @@ func (a *Auth) NewJWTCasbinMiddleware(useQueryToken bool, tokenExpiredMessage st
 	if useQueryToken {
 		jwtQueryConfig := middleware.DefaultJWTConfig
 		jwtQueryConfig.TokenLookup = "query:token"
-		jwtQueryConfig.SigningKey = a.secret
+		jwtQueryConfig.SigningKey = a.Secret
 		if tokenExpiredMessage == "" {
 			tokenExpiredMessage = "Токен авторизации устарел. Выполните операцию заново вместо обновления этой страницы."
 		}
@@ -42,9 +42,10 @@ func (a *Auth) NewJWTCasbinMiddleware(useQueryToken bool, tokenExpiredMessage st
 	}
 }
 
-func (a *Auth) currentUser(c echo.Context) string {
+// CurrentUser returns the name of the user currently logged in
+func (a *Auth) CurrentUser(c echo.Context) string {
 	claims := c.Get("user").(*jwt.Token).Claims.(jwt.MapClaims)
-	return claims["user"].(string)
+	return strings.ToLower(claims["user"].(string))
 }
 
 func (a *Auth) newToken(username string, expiration time.Duration) (string, error) {
@@ -52,7 +53,7 @@ func (a *Auth) newToken(username string, expiration time.Duration) (string, erro
 		"user": username,
 		"exp":  time.Now().Add(expiration).Unix(),
 	})
-	return token.SignedString(a.secret)
+	return token.SignedString(a.Secret)
 }
 
 func (a *Auth) login(c echo.Context) error {
@@ -76,15 +77,15 @@ func (a *Auth) login(c echo.Context) error {
 	return JSONOk(c, Result{"token": token})
 }
 
-func (a *Auth) perms(c echo.Context) (*Permissions, error) {
-	token := c.Get("user").(*jwt.Token)
-	claims := token.Claims.(jwt.MapClaims)
-	name := strings.ToLower(claims["user"].(string))
+// Perms returns the basic permissions data for the current user
+func (a *Auth) Perms(c echo.Context) (*Permissions, error) {
+	name := a.CurrentUser(c)
 	var u User
 	if a.db.First(&u, "name = ?", name).RecordNotFound() {
 		return nil, userNotFoundError
 	}
 	var result Permissions
+	result.Resources = make(map[string]Access)
 	var err error
 	result.Edit, err = a.Enforcer.Enforce(name, "/api/recs", "POST")
 	if err != nil {
@@ -101,7 +102,7 @@ func (a *Auth) perms(c echo.Context) (*Permissions, error) {
 }
 
 func (a *Auth) permsJSON(c echo.Context) error {
-	result, err := a.perms(c)
+	result, err := a.Perms(c)
 	if err != nil {
 		return err
 	}
@@ -112,5 +113,5 @@ func (a *Auth) permsJSON(c echo.Context) error {
 func (a *Auth) AddAuth(e *echo.Echo) {
 	g := e.Group("/auth")
 	g.POST("/login", a.login)
-	g.GET("/perms", a.permsJSON, middleware.JWT(a.secret))
+	g.GET("/perms", a.permsJSON, middleware.JWT(a.Secret))
 }

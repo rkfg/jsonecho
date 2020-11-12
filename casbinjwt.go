@@ -25,17 +25,26 @@ type User struct {
 	Password string `json:"password,omitempty"`
 }
 
+// Access defines access rights to a resource
+type Access struct {
+	Get    bool `json:"get"`
+	Post   bool `json:"post"`
+	Put    bool `json:"put"`
+	Delete bool `json:"delete"`
+}
+
 // Permissions describes the editing ability of the user and their roles
 type Permissions struct {
-	Edit bool   `json:"edit"`
-	Role string `json:"role"`
+	Edit      bool              `json:"edit"`
+	Role      string            `json:"role"`
+	Resources map[string]Access `json:"resources"`
 }
 
 // Auth is a struct holding the casbin enforcer for the middleware
 type Auth struct {
 	Enforcer      *casbin.Enforcer
 	TokenDuration time.Duration
-	secret        []byte
+	Secret        []byte
 	db            *gorm.DB
 }
 
@@ -67,7 +76,7 @@ func NewAuth(secret []byte, tokenDuration time.Duration, db *gorm.DB) *Auth {
 	if tokenDuration == 0 {
 		tokenDuration = 24 * time.Hour * 365
 	}
-	result := &Auth{TokenDuration: tokenDuration, secret: secret, db: db}
+	result := &Auth{TokenDuration: tokenDuration, Secret: secret, db: db}
 	adapter, err := result.newCombinedAdapter("casbin_auth_policy.csv")
 	if err != nil {
 		panic(fmt.Errorf("error creating casbin adapter: %s", err))
