@@ -12,29 +12,29 @@ import (
 )
 
 // NewJWTCasbinMiddleware provides a combined middleware of JWTWithConfig with a provided secret and a default casbin enforcer
-func (a *Auth) NewJWTCasbinMiddleware(useQueryToken bool, tokenExpiredMessage string) echo.MiddlewareFunc {
+func (a *Auth) NewJWTCasbinMiddleware(useFormToken bool, tokenExpiredMessage string) echo.MiddlewareFunc {
 	jwtHeaderConfig := middleware.DefaultJWTConfig
 	jwtHeaderConfig.SigningKey = a.Secret
-	if useQueryToken {
+	if useFormToken {
 		jwtHeaderConfig.Skipper = func(c echo.Context) bool {
-			return c.QueryParam("token") != ""
+			return c.FormValue("token") != ""
 		}
 	}
-	if useQueryToken {
-		jwtQueryConfig := middleware.DefaultJWTConfig
-		jwtQueryConfig.TokenLookup = "query:token"
-		jwtQueryConfig.SigningKey = a.Secret
+	if useFormToken {
+		jwtFormConfig := middleware.DefaultJWTConfig
+		jwtFormConfig.TokenLookup = "form:token"
+		jwtFormConfig.SigningKey = a.Secret
 		if tokenExpiredMessage == "" {
 			tokenExpiredMessage = "Токен авторизации устарел. Выполните операцию заново вместо обновления этой страницы."
 		}
-		jwtQueryConfig.ErrorHandlerWithContext = func(e error, c echo.Context) error {
+		jwtFormConfig.ErrorHandlerWithContext = func(e error, c echo.Context) error {
 			return c.HTML(401, tokenExpiredMessage)
 		}
-		jwtQueryConfig.Skipper = func(c echo.Context) bool {
-			return c.QueryParam("token") == ""
+		jwtFormConfig.Skipper = func(c echo.Context) bool {
+			return c.FormValue("token") == ""
 		}
 		return func(next echo.HandlerFunc) echo.HandlerFunc {
-			return middleware.JWTWithConfig(jwtQueryConfig)(middleware.JWTWithConfig(jwtHeaderConfig)(a.Enforce(next)))
+			return middleware.JWTWithConfig(jwtFormConfig)(middleware.JWTWithConfig(jwtHeaderConfig)(a.Enforce(next)))
 		}
 	}
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
