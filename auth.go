@@ -65,7 +65,7 @@ func (a *Auth) login(c echo.Context) error {
 	login.Name = strings.ToLower(login.Name)
 	var ex User
 	if a.db.Find(&ex, "name = ?", login.Name).RecordNotFound() {
-		return userNotFoundError
+		return UserNotFoundError
 	}
 	if err := bcrypt.CompareHashAndPassword([]byte(ex.Password), []byte(login.Password)); err != nil {
 		return JSONErrorMessage(c, http.StatusUnauthorized, "Неверный пароль")
@@ -82,7 +82,7 @@ func (a *Auth) Perms(c echo.Context) (*Permissions, error) {
 	name := a.CurrentUser(c)
 	var u User
 	if a.db.First(&u, "name = ?", name).RecordNotFound() {
-		return nil, userNotFoundError
+		return nil, UserNotFoundError
 	}
 	var result Permissions
 	result.Resources = make(map[string]Access)

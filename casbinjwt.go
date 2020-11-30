@@ -15,7 +15,8 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
-var userNotFoundError = echo.NewHTTPError(http.StatusNotFound, "Пользователь не существует")
+// UserNotFoundError is a basic "user not found" error
+var UserNotFoundError = echo.NewHTTPError(http.StatusNotFound, "Пользователь не существует")
 
 // User is a user with access rights
 type User struct {
