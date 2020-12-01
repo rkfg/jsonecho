@@ -1,6 +1,7 @@
 package jsonecho
 
 import (
+	"fmt"
 	"net/http"
 	"strings"
 	"time"
@@ -75,6 +76,21 @@ func (a *Auth) login(c echo.Context) error {
 		return JSONError(c, http.StatusBadRequest, err)
 	}
 	return JSONOk(c, Result{"token": token})
+}
+
+// CurrentRole returns the current user's role
+func (a *Auth) CurrentRole(c echo.Context) (result string, err error) {
+	user := a.CurrentUser(c)
+	var roles []string
+	roles, err = a.Enforcer.GetRolesForUser(user)
+	if err != nil {
+		return
+	}
+	if len(roles) == 0 {
+		return "", fmt.Errorf("не найдены роли пользователя %s", user)
+	}
+	result = strings.TrimPrefix(roles[0], "role:")
+	return
 }
 
 // Perms returns the basic permissions data for the current user
