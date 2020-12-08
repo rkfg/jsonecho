@@ -78,9 +78,8 @@ func (a *Auth) login(c echo.Context) error {
 	return JSONOk(c, Result{"token": token})
 }
 
-// CurrentRole returns the current user's role
-func (a *Auth) CurrentRole(c echo.Context) (result string, err error) {
-	user := a.CurrentUser(c)
+// RoleForUser returns the user's role
+func (a *Auth) RoleForUser(user string) (result string, err error) {
 	var roles []string
 	roles, err = a.Enforcer.GetRolesForUser(user)
 	if err != nil {
@@ -91,6 +90,11 @@ func (a *Auth) CurrentRole(c echo.Context) (result string, err error) {
 	}
 	result = strings.TrimPrefix(roles[0], "role:")
 	return
+}
+
+// CurrentRole returns the current user's role
+func (a *Auth) CurrentRole(c echo.Context) (result string, err error) {
+	return a.RoleForUser(a.CurrentUser(c))
 }
 
 // Perms returns the basic permissions data for the current user
