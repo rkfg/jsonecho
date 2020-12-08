@@ -77,7 +77,7 @@ func JSONOk(c echo.Context, r interface{}) error {
 
 // JSONError wraps the provided error in a JSON and returns it with the provided http error code
 func JSONError(c echo.Context, code int, err error) error {
-	return JSONErrorMessage(c, code, err.Error())
+	return JSONErrorMessage(c, code, "Ошибка: "+err.Error())
 }
 
 // JSONErrorMessage returns a JSON error with the provided http error code and message
