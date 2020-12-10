@@ -9,6 +9,7 @@ import (
 	"github.com/dgrijalva/jwt-go"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
+	"github.com/labstack/gommon/random"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -57,6 +58,10 @@ func (a *Auth) newToken(username string, expiration time.Duration) (string, erro
 	return token.SignedString(a.Secret)
 }
 
+func (a *Auth) refreshCookieName() string {
+	return "refresh_token_" + a.AppName
+}
+
 func (a *Auth) login(c echo.Context) error {
 	var login struct {
 		Name     string
@@ -75,6 +80,11 @@ func (a *Auth) login(c echo.Context) error {
 	if err != nil {
 		return JSONError(c, http.StatusBadRequest, err)
 	}
+	refreshToken := RefreshToken{Username: login.Name, Token: random.String(32, random.Alphanumeric), LastUsed: time.Now()}
+	a.db.Save(&refreshToken)
+	c.SetCookie(&http.Cookie{Name: a.refreshCookieName(),
+		Value: refreshToken.Token, Expires: time.Now().Add(time.Hour * 24 * 30),
+		HttpOnly: true, SameSite: http.SameSiteStrictMode})
 	return JSONOk(c, Result{"token": token})
 }
 
@@ -129,9 +139,46 @@ func (a *Auth) permsJSON(c echo.Context) error {
 	return JSONOk(c, &result)
 }
 
+func (a *Auth) refreshToken(c echo.Context) error {
+	a.db.Delete(&RefreshToken{}, "last_used < ?", time.Now().Add(-time.Hour*24*30))
+	cookie, err := c.Cookie(a.refreshCookieName())
+	if err != nil {
+		return JSONError(c, 400, err)
+	}
+	if cookie == nil || cookie.Value == "" {
+		return JSONErrorMessage(c, 400, "no refresh_token cookie")
+	}
+	var ref RefreshToken
+	if a.db.First(&ref, "token = ?", cookie.Value).RecordNotFound() {
+		return JSONErrorMessage(c, 403, "token not found")
+	}
+	ref.LastUsed = time.Now()
+	a.db.Save(&ref)
+	token, err := a.newToken(ref.Username, a.TokenDuration)
+	if err != nil {
+		return JSONError(c, 500, err)
+	}
+	return JSONOk(c, Result{"token": token})
+}
+
+func (a *Auth) logout(c echo.Context) error {
+	cookie, err := c.Cookie(a.refreshCookieName())
+	if err != nil {
+		return JSONError(c, 400, err)
+	}
+	if cookie == nil || cookie.Value == "" {
+		return JSONErrorMessage(c, 400, "no refresh_token cookie")
+	}
+	a.db.Delete(&RefreshToken{}, "token = ?", cookie.Value)
+	c.SetCookie(&http.Cookie{Name: a.refreshCookieName(), Expires: time.Unix(0, 0)})
+	return JSONOk(c, Result{"message": "ok"})
+}
+
 // AddAuth registers authentication handlers with Echo
 func (a *Auth) AddAuth(e *echo.Echo) {
 	g := e.Group("/auth")
 	g.POST("/login", a.login)
+	g.POST("/refresh", a.refreshToken)
+	g.POST("/logout", a.logout)
 	g.GET("/perms", a.permsJSON, middleware.JWT(a.Secret))
 }

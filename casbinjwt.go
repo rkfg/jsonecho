@@ -46,7 +46,16 @@ type Auth struct {
 	Enforcer      *casbin.Enforcer
 	TokenDuration time.Duration
 	Secret        []byte
+	AppName       string
 	db            *gorm.DB
+}
+
+// RefreshToken contain a special long-lived token to get new JWTs
+type RefreshToken struct {
+	JEBase
+	Username string
+	Token    string
+	LastUsed time.Time
 }
 
 type combinedAdapter struct {
@@ -73,11 +82,11 @@ func (a *Auth) newCombinedAdapter(policyPath string) (persist.Adapter, error) {
 }
 
 // NewAuth initializes a new authentication object
-func NewAuth(secret []byte, tokenDuration time.Duration, db *gorm.DB) *Auth {
+func NewAuth(secret []byte, tokenDuration time.Duration, db *gorm.DB, appName string) *Auth {
 	if tokenDuration == 0 {
-		tokenDuration = 24 * time.Hour * 365
+		tokenDuration = 10 * time.Minute
 	}
-	result := &Auth{TokenDuration: tokenDuration, Secret: secret, db: db}
+	result := &Auth{TokenDuration: tokenDuration, Secret: secret, db: db, AppName: appName}
 	adapter, err := result.newCombinedAdapter("casbin_auth_policy.csv")
 	if err != nil {
 		panic(fmt.Errorf("error creating casbin adapter: %s", err))
