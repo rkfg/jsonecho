@@ -8,6 +8,7 @@ require (
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible
 	github.com/jinzhu/gorm v1.9.16
 	github.com/labstack/echo/v4 v4.1.17
+	github.com/labstack/gommon v0.3.0
 	github.com/liamylian/jsontime/v2 v2.0.0
 	github.com/mattn/go-colorable v0.1.8 // indirect
 	golang.org/x/crypto v0.0.0-20201124201722-c8d3bf9c5392

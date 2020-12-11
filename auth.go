@@ -2,6 +2,7 @@ package jsonecho
 
 import (
 	"fmt"
+	"log"
 	"net/http"
 	"strings"
 	"time"
@@ -46,8 +47,11 @@ func (a *Auth) NewJWTCasbinMiddleware(useFormToken bool, tokenExpiredMessage str
 
 // CurrentUser returns the name of the user currently logged in
 func (a *Auth) CurrentUser(c echo.Context) string {
-	claims := c.Get("user").(*jwt.Token).Claims.(jwt.MapClaims)
-	return strings.ToLower(claims["user"].(string))
+	if user, ok := c.Get("user").(*jwt.Token); ok {
+		claims := user.Claims.(jwt.MapClaims)
+		return strings.ToLower(claims["user"].(string))
+	}
+	return ""
 }
 
 func (a *Auth) newToken(username string, expiration time.Duration) (string, error) {
