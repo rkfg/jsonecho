@@ -145,32 +145,41 @@ func (a *Auth) permsJSON(c echo.Context) error {
 
 func (a *Auth) refreshToken(c echo.Context) error {
 	a.db.Delete(&RefreshToken{}, "last_used < ?", time.Now().Add(-time.Hour*24*30))
+	log.Printf("Refreshing token...")
 	cookie, err := c.Cookie(a.refreshCookieName())
 	if err != nil {
+		log.Printf("Error getting cookie: %s", err)
 		return JSONError(c, 400, err)
 	}
 	if cookie == nil || cookie.Value == "" {
+		log.Printf("No cookie found!")
 		return JSONErrorMessage(c, 400, "no refresh_token cookie")
 	}
 	var ref RefreshToken
 	if a.db.First(&ref, "token = ?", cookie.Value).RecordNotFound() {
+		log.Printf("Token %s not found in database", cookie.Value)
 		return JSONErrorMessage(c, 403, "token not found")
 	}
 	ref.LastUsed = time.Now()
 	a.db.Save(&ref)
 	token, err := a.newToken(ref.Username, a.TokenDuration)
 	if err != nil {
+		log.Printf("Can't reissue token %s for user %s: %s", cookie.Value, ref.Username, err)
 		return JSONError(c, 500, err)
 	}
+	log.Printf("Token reissued for user %s", ref.Username)
 	return JSONOk(c, Result{"token": token})
 }
 
 func (a *Auth) logout(c echo.Context) error {
+	log.Printf("Logging out user %s", a.CurrentUser(c))
 	cookie, err := c.Cookie(a.refreshCookieName())
 	if err != nil {
+		log.Printf("Error getting cookie: %s", err)
 		return JSONError(c, 400, err)
 	}
 	if cookie == nil || cookie.Value == "" {
+		log.Printf("No cookie found!")
 		return JSONErrorMessage(c, 400, "no refresh_token cookie")
 	}
 	a.db.Delete(&RefreshToken{}, "token = ?", cookie.Value)
