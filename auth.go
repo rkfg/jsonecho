@@ -28,7 +28,7 @@ func (a *Auth) NewJWTCasbinMiddleware(useFormToken bool, tokenExpiredMessage str
 		jwtFormConfig.TokenLookup = "form:token"
 		jwtFormConfig.SigningKey = a.Secret
 		if tokenExpiredMessage == "" {
-			tokenExpiredMessage = "Токен авторизации устарел. Выполните операцию заново вместо обновления этой страницы."
+			tokenExpiredMessage = "Токен авторизации устарел. Попробуйте ещё раз."
 		}
 		jwtFormConfig.ErrorHandlerWithContext = func(e error, c echo.Context) error {
 			return c.HTML(401, tokenExpiredMessage)
