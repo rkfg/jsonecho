@@ -171,12 +171,6 @@ func (a *Auth) refreshToken(c echo.Context) error {
 }
 
 func (a *Auth) logout(c echo.Context) error {
-	user, err := a.CurrentUser(c)
-	if err != nil {
-		log.Println("Logging out failed, user not found")
-		return err
-	}
-	log.Printf("Logging out user %s", user)
 	cookie, err := c.Cookie(a.refreshCookieName())
 	if err != nil {
 		log.Printf("Error getting cookie: %s", err)
