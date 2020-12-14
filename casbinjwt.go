@@ -47,6 +47,7 @@ type Auth struct {
 	TokenDuration time.Duration
 	Secret        []byte
 	AppName       string
+	PermsSetter   func(perms *Permissions) error
 	db            *gorm.DB
 }
 

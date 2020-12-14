@@ -45,20 +45,56 @@ func (a *Auth) NewJWTCasbinMiddleware(useFormToken bool, tokenExpiredMessage str
 	}
 }
 
-// CurrentUser returns the name of the user currently logged in
-func (a *Auth) CurrentUser(c echo.Context) string {
+func claims(c echo.Context) (jwt.MapClaims, error) {
 	if user, ok := c.Get("user").(*jwt.Token); ok {
-		claims := user.Claims.(jwt.MapClaims)
-		return strings.ToLower(claims["user"].(string))
+		return user.Claims.(jwt.MapClaims), nil
 	}
-	return ""
+	return nil, fmt.Errorf("no claims found")
 }
 
-func (a *Auth) newToken(username string, expiration time.Duration) (string, error) {
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
+// CurrentUser returns the name of the user currently logged in
+func (a *Auth) CurrentUser(c echo.Context) (user string, err error) {
+	var cl jwt.MapClaims
+	cl, err = claims(c)
+	if err != nil {
+		return
+	}
+	return strings.ToLower(cl["user"].(string)), nil
+}
+
+// CurrentRole returns the current user's role
+func (a *Auth) CurrentRole(c echo.Context) (role string, err error) {
+	var cl jwt.MapClaims
+	cl, err = claims(c)
+	if err != nil {
+		return
+	}
+	if perms, ok := cl["perms"].(map[string]interface{}); ok {
+		if role, ok = perms["role"].(string); ok {
+			return strings.ToLower(role), nil
+		}
+	}
+	return "", fmt.Errorf("invalid perms")
+}
+
+func (a *Auth) newToken(username string, expiration time.Duration) (result string, err error) {
+	claims := jwt.MapClaims{
 		"user": username,
 		"exp":  time.Now().Add(expiration).Unix(),
-	})
+	}
+	if a.PermsSetter != nil {
+		var role string
+		role, err = a.RoleForUser(username)
+		if err != nil {
+			return
+		}
+		perms := Permissions{Role: role, Resources: map[string]Access{}}
+		if err = a.PermsSetter(&perms); err != nil {
+			return
+		}
+		claims["perms"] = perms
+	}
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	return token.SignedString(a.Secret)
 }
 
@@ -106,43 +142,6 @@ func (a *Auth) RoleForUser(user string) (result string, err error) {
 	return
 }
 
-// CurrentRole returns the current user's role
-func (a *Auth) CurrentRole(c echo.Context) (result string, err error) {
-	return a.RoleForUser(a.CurrentUser(c))
-}
-
-// Perms returns the basic permissions data for the current user
-func (a *Auth) Perms(c echo.Context) (*Permissions, error) {
-	name := a.CurrentUser(c)
-	var u User
-	if a.db.First(&u, "name = ?", name).RecordNotFound() {
-		return nil, UserNotFoundError
-	}
-	var result Permissions
-	result.Resources = make(map[string]Access)
-	var err error
-	result.Edit, err = a.Enforcer.Enforce(name, "/api/recs", "POST")
-	if err != nil {
-		return nil, err
-	}
-	roles, err := a.Enforcer.GetRolesForUser(name)
-	if err != nil {
-		return nil, err
-	}
-	if len(roles) > 0 {
-		result.Role = strings.TrimPrefix(roles[0], "role:")
-	}
-	return &result, nil
-}
-
-func (a *Auth) permsJSON(c echo.Context) error {
-	result, err := a.Perms(c)
-	if err != nil {
-		return err
-	}
-	return JSONOk(c, &result)
-}
-
 func (a *Auth) refreshToken(c echo.Context) error {
 	a.db.Delete(&RefreshToken{}, "last_used < ?", time.Now().Add(-time.Hour*24*30))
 	log.Printf("Refreshing token...")
@@ -172,7 +171,12 @@ func (a *Auth) refreshToken(c echo.Context) error {
 }
 
 func (a *Auth) logout(c echo.Context) error {
-	log.Printf("Logging out user %s", a.CurrentUser(c))
+	user, err := a.CurrentUser(c)
+	if err != nil {
+		log.Println("Logging out failed, user not found")
+		return err
+	}
+	log.Printf("Logging out user %s", user)
 	cookie, err := c.Cookie(a.refreshCookieName())
 	if err != nil {
 		log.Printf("Error getting cookie: %s", err)
@@ -193,5 +197,4 @@ func (a *Auth) AddAuth(e *echo.Echo) {
 	g.POST("/login", a.login)
 	g.POST("/refresh", a.refreshToken)
 	g.POST("/logout", a.logout)
-	g.GET("/perms", a.permsJSON, middleware.JWT(a.Secret))
 }
