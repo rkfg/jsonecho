@@ -113,14 +113,13 @@ func (u *User) Preprocess() error {
 		if err != nil {
 			return err
 		}
-		u.Password = string(pwd)
+		u.Password = Password(pwd)
 	}
 	return nil
 }
 
 // Postprocess removes the password and trims the role prefix before returning the user struct
 func (u *User) Postprocess() error {
-	u.Password = ""
 	u.Role = strings.TrimPrefix(u.Role, "role:")
 	return nil
 }

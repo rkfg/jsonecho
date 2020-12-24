@@ -18,12 +18,20 @@ import (
 // UserNotFoundError is a basic "user not found" error
 var UserNotFoundError = echo.NewHTTPError(http.StatusNotFound, "Пользователь не существует")
 
+// Password is a non-serializable string that represents a password hash
+type Password string
+
+// MarshalJSON doesn't return anything to prevent hash leak
+func (p *Password) MarshalJSON() ([]byte, error) {
+	return []byte("null"), nil
+}
+
 // User is a user with access rights
 type User struct {
 	JEBase
-	Name     string `json:"name"`
-	Role     string `json:"role" gorm:"-"`
-	Password string `json:"password,omitempty"`
+	Name     string   `json:"name"`
+	Role     string   `json:"role" gorm:"-"`
+	Password Password `json:"password,omitempty"`
 }
 
 // Access defines access rights to a resource
