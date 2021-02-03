@@ -111,13 +111,16 @@ func (a *Auth) login(c echo.Context) error {
 	login.Name = strings.ToLower(login.Name)
 	var ex User
 	if a.db.Find(&ex, "name = ?", login.Name).RecordNotFound() {
+		log.Printf("User %s doesn't exist", login.Name)
 		return UserNotFoundError
 	}
 	if err := bcrypt.CompareHashAndPassword([]byte(ex.Password), []byte(login.Password)); err != nil {
+		log.Printf("User %s failed to log in", login.Name)
 		return JSONErrorMessage(c, http.StatusUnauthorized, "Неверный пароль")
 	}
 	token, err := a.newToken(login.Name, a.TokenDuration)
 	if err != nil {
+		log.Printf("Error issuing a token for user %s: %s", login.Name, err)
 		return JSONError(c, http.StatusBadRequest, err)
 	}
 	refreshToken := RefreshToken{Username: login.Name, Token: random.String(32, random.Alphanumeric), LastUsed: time.Now()}
@@ -125,6 +128,7 @@ func (a *Auth) login(c echo.Context) error {
 	c.SetCookie(&http.Cookie{Name: a.refreshCookieName(),
 		Value: refreshToken.Token, Expires: time.Now().Add(time.Hour * 24 * 30),
 		HttpOnly: true, SameSite: http.SameSiteStrictMode})
+	log.Printf("User %s logged in", login.Name)
 	return JSONOk(c, Result{"token": token})
 }
 
@@ -180,8 +184,11 @@ func (a *Auth) logout(c echo.Context) error {
 		log.Printf("No cookie found!")
 		return JSONErrorMessage(c, 400, "no refresh_token cookie")
 	}
-	a.db.Delete(&RefreshToken{}, "token = ?", cookie.Value)
+	var token RefreshToken
+	a.db.First(&token, "token = ?", cookie.Value)
+	a.db.Delete(&token)
 	c.SetCookie(&http.Cookie{Name: a.refreshCookieName(), Expires: time.Unix(0, 0)})
+	log.Printf("User %s logged off", token.Username)
 	return JSONOk(c, Result{"message": "ok"})
 }
 
