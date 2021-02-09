@@ -186,7 +186,9 @@ func (a *Auth) logout(c echo.Context) error {
 	}
 	var token RefreshToken
 	a.db.First(&token, "token = ?", cookie.Value)
-	a.db.Delete(&token)
+	if token.ID > 0 {
+		a.db.Delete(&token)
+	}
 	c.SetCookie(&http.Cookie{Name: a.refreshCookieName(), Expires: time.Unix(0, 0)})
 	log.Printf("User %s logged off", token.Username)
 	return JSONOk(c, Result{"message": "ok"})
